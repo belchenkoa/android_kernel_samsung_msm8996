@@ -253,7 +253,14 @@ fi
 
 #start patching vmlinux with static patcher, temporary put it here 
 rm -f kaslr_fips
-$HOSTCC -o kaslr_fips  $srctree/scripts/kaslr_fips.c
+# Android's prebuilt clang may not have a system "ld" in PATH on the
+# self-hosted builder. Prefer the linker shipped with the same toolchain.
+HOSTCC_LDFLAGS=""
+HOSTCC_BIN="${HOSTCC%% *}"
+if [[ "$(basename "$HOSTCC_BIN")" == clang* && -x "$(dirname "$HOSTCC_BIN")/ld.lld" ]]; then
+	HOSTCC_LDFLAGS="-fuse-ld=lld"
+fi
+$HOSTCC $HOSTCC_LDFLAGS -o kaslr_fips  $srctree/scripts/kaslr_fips.c
 retval=$?
 if [ $retval -ne 0 ]; then
 	echo "$0 : $HOSTCC returned error"
@@ -261,7 +268,7 @@ if [ $retval -ne 0 ]; then
 fi
 
 rm -f fips_crypto_utils
-$HOSTCC -o fips_crypto_utils $srctree/scripts/fips_crypto_utils.c
+$HOSTCC $HOSTCC_LDFLAGS -o fips_crypto_utils $srctree/scripts/fips_crypto_utils.c
 retval=$?
 if [ $retval -ne 0 ]; then
 	echo "$0 : $HOSTCC returned error"
